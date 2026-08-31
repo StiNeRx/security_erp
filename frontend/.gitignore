@@ -1,0 +1,38 @@
+# ── Environment & Secrets ────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+
+# ── Build Outputs ─────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+
+# ── Dependencies ──────────────────────────────────────────────
+node_modules/
+
+# ── Logs ──────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── Editor ────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── Misc ──────────────────────────────────────────────────────
+*.local
+.cache/

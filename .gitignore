@@ -1,0 +1,90 @@
+# ============================================================
+# Security & Facility Management ERP — Root .gitignore
+# ============================================================
+
+# ─── Environment & Secrets ────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+**/.env
+**/.env.local
+**/.env.production
+
+# ─── Python / Backend ─────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+env/
+ENV/
+
+# Pytest & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# SQLite dev database (do NOT commit seed data)
+backend/seed.db
+*.db
+*.sqlite3
+
+# Alembic generated (keep alembic/ folder but not __pycache__)
+backend/alembic/versions/__pycache__/
+
+# Backend logs
+backend/*.log
+backend/*_err.log
+
+# ─── Node / Frontend ──────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.cache/
+*.local
+
+# Build artefacts
+node_modules/
+dist/
+dist-ssr/
+
+# ─── Editors & IDEs ───────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── OS artefacts ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Logs (root & subdirs) ────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── Session / Walkthrough notes (internal only) ──────────
+session-ses_*.md
+conversation_history.md
+
+# ─── Misc ─────────────────────────────────────────────────
+*.bak
+*.tmp
+.cache/
