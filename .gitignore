@@ -83,6 +83,9 @@ pnpm-debug.log*
 # ─── Session / Walkthrough notes (internal only) ──────────
 session-ses_*.md
 conversation_history.md
+AGENTS.md
+GEMINI.md
+PROGRESS.md
 
 # ─── Misc ─────────────────────────────────────────────────
 *.bak
