@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { AuthContext } from './auth-context-base';
 import api from '../api/axios';
 import { INITIAL_USERS } from '../api/mockData';
@@ -14,7 +15,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let isMounted = true;
-    api.get('/../health')
+    const base = api.defaults.baseURL || '';
+    const healthUrl = base.includes('/api/v1')
+      ? base.replace(/\/api\/v1\/?$/, '/health')
+      : (base ? `${base}/health` : '/health');
+
+    axios.get(healthUrl, { timeout: 3000 })
       .then(() => {
         if (isMounted) setApiConnected(true);
       })
