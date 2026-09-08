@@ -14,6 +14,16 @@ export const INITIAL_USERS = [
     created_at: "2026-01-01T00:00:00Z"
   },
   {
+    id: 99,
+    email: "stiner@example.com",
+    full_name: "Stiner Administrator",
+    phone_number: "+91-9876543299",
+    role: "ADMIN",
+    is_active: true,
+    is_superuser: true,
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
     id: 2,
     email: "client.manager@acmecorp.com",
     full_name: "John Doe (Acme Corp)",

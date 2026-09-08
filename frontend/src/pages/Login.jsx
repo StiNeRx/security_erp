@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { Lock, Mail, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
@@ -7,8 +7,14 @@ export default function Login() {
   const [email, setEmail] = useState('admin@securityerp.com');
   const [password, setPassword] = useState('Admin@12345');
   const [error, setError] = useState('');
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   async function handleSubmit(e) {
     e?.preventDefault();
@@ -22,9 +28,16 @@ export default function Login() {
     }
   }
 
-  function handleQuickFill(demoEmail, demoPass) {
+  async function handleQuickFill(demoEmail, demoPass) {
     setEmail(demoEmail);
     setPassword(demoPass);
+    setError('');
+    const result = await login(demoEmail, demoPass);
+    if (result.success) {
+      navigate('/dashboard');
+    } else {
+      setError(result.error);
+    }
   }
 
   return (

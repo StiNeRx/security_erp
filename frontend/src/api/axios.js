@@ -40,14 +40,23 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — handle 401
+// Response interceptor — handle 401 and reject HTML responses (from SPA rewrites)
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If the server returned an HTML document (e.g. Vercel SPA rewrite fallback for an unhosted API route)
+    const contentType = response.headers?.['content-type'] || '';
+    if (
+      (typeof response.data === 'string' && response.data.trim().toLowerCase().startsWith('<!doctype')) ||
+      contentType.includes('text/html')
+    ) {
+      return Promise.reject(new Error('Backend API endpoint returned HTML instead of JSON. Backend service unavailable.'));
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
-      // Only clear auth and redirect if user has a token (was previously authenticated)
       const hasToken = localStorage.getItem('access_token');
-      if (hasToken) {
+      if (hasToken && hasToken !== 'undefined') {
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');
         window.location.href = '/login';

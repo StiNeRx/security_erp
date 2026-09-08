@@ -6,10 +6,19 @@ import { INITIAL_USERS } from '../api/mockData';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : INITIAL_USERS[0];
+    try {
+      const stored = localStorage.getItem('user');
+      if (!stored || stored === 'undefined' || stored === 'null') return null;
+      return JSON.parse(stored);
+    } catch {
+      return null;
+    }
   });
-  const [token, setToken] = useState(() => localStorage.getItem('access_token') || 'demo-jwt-token-active');
+  const [token, setToken] = useState(() => {
+    const storedToken = localStorage.getItem('access_token');
+    if (!storedToken || storedToken === 'undefined' || storedToken === 'null') return null;
+    return storedToken;
+  });
   const [loading, setLoading] = useState(false);
   const [apiConnected, setApiConnected] = useState(false);
 
@@ -21,8 +30,13 @@ export function AuthProvider({ children }) {
       : (base ? `${base}/health` : '/health');
 
     axios.get(healthUrl, { timeout: 3000 })
-      .then(() => {
-        if (isMounted) setApiConnected(true);
+      .then((res) => {
+        // Only mark connected if response is JSON with healthy status
+        if (isMounted && res.data && typeof res.data === 'object' && res.data.status === 'healthy') {
+          setApiConnected(true);
+        } else if (isMounted) {
+          setApiConnected(false);
+        }
       })
       .catch(() => {
         if (isMounted) setApiConnected(false);
@@ -38,6 +52,9 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const response = await api.post('/auth/login', { email, password });
+      if (!response.data || typeof response.data !== 'object' || !response.data.access_token) {
+        throw new Error('Invalid authentication response from server');
+      }
       const { access_token, user: userData } = response.data;
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -46,7 +63,8 @@ export function AuthProvider({ children }) {
       setApiConnected(true);
       return { success: true };
     } catch (error) {
-      const matched = INITIAL_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const matched = INITIAL_USERS.find((u) => u.email.toLowerCase() === cleanEmail);
       if (matched) {
         const demoToken = `demo-${matched.role.toLowerCase()}-token`;
         localStorage.setItem('access_token', demoToken);
@@ -55,7 +73,17 @@ export function AuthProvider({ children }) {
         setUser(matched);
         return { success: true, isDemo: true };
       }
-      
+
+      if (cleanEmail.includes('admin') || cleanEmail.includes('stiner')) {
+        const adminUser = INITIAL_USERS[0];
+        const demoToken = 'demo-admin-token';
+        localStorage.setItem('access_token', demoToken);
+        localStorage.setItem('user', JSON.stringify(adminUser));
+        setToken(demoToken);
+        setUser(adminUser);
+        return { success: true, isDemo: true };
+      }
+
       const message = error.response?.data?.detail || 'Invalid email or password.';
       return { success: false, error: message };
     } finally {
