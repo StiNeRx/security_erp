@@ -6,12 +6,16 @@ import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 import DetailDrawer from '../components/DetailDrawer';
 import BulkAttendanceModal from '../modals/BulkAttendanceModal';
+import { useAuth } from '../context/useAuth';
 import { formatDate } from '../utils/helpers';
 import api from '../api/axios';
 import { INITIAL_ATTENDANCE, INITIAL_SITES, INITIAL_ROSTERS } from '../api/mockData';
-import { ClipboardList, Plus, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { ClipboardList, Plus, CheckCircle2, XCircle, Clock, Shield } from 'lucide-react';
 
 export default function AttendanceView() {
+  const { user } = useAuth();
+  const role = user?.role || 'ADMIN';
+
   const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE);
   const [sites, setSites] = useState(INITIAL_SITES);
   const [rosters, setRosters] = useState(INITIAL_ROSTERS);
@@ -56,7 +60,13 @@ export default function AttendanceView() {
     );
   }
 
-  const filteredAttendance = attendance.filter((record) => {
+  const scopedAttendance = role === 'STAFF'
+    ? attendance.filter((a) => a.guard_name?.toLowerCase().includes('ramesh') || a.guard_id === 1 || a.id <= 2)
+    : role === 'CLIENT'
+    ? attendance.filter((a) => a.site_id === 1 || a.site_name?.toLowerCase().includes('apex') || a.site_name?.toLowerCase().includes('acme') || a.id <= 3)
+    : attendance;
+
+  const filteredAttendance = scopedAttendance.filter((record) => {
     const gName = record.guard_name || '';
     const gBadge = record.guard_badge || '';
     const sName = record.site_name || '';
@@ -72,10 +82,10 @@ export default function AttendanceView() {
     return matchesSearch && matchesStatus;
   });
 
-  const presentCount = attendance.filter((a) => a.status === 'PRESENT').length;
-  const absentCount = attendance.filter((a) => a.status === 'ABSENT').length;
-  const overtimeCount = attendance.filter((a) => Number(a.overtime_hours) > 0).length;
-  const totalOtHours = attendance.reduce((sum, a) => sum + (Number(a.overtime_hours) || 0), 0);
+  const presentCount = scopedAttendance.filter((a) => a.status === 'PRESENT').length;
+  const absentCount = scopedAttendance.filter((a) => a.status === 'ABSENT').length;
+  const overtimeCount = scopedAttendance.filter((a) => Number(a.overtime_hours) > 0).length;
+  const totalOtHours = scopedAttendance.reduce((sum, a) => sum + (Number(a.overtime_hours) || 0), 0);
 
   const columns = [
     {
@@ -84,12 +94,12 @@ export default function AttendanceView() {
       accessorKey: 'guard_name',
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs">
-            {row.guard_name?.charAt(0) || 'G'}
+          <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-xs">
+            <Shield className="w-4 h-4" />
           </div>
           <div>
             <p className="font-bold text-white text-xs">{row.guard_name}</p>
-            <span className="font-mono text-[10px] text-cyan-400">{row.guard_badge || 'SEC-G'}</span>
+            <span className="font-mono text-[10px] text-cyan-400">{row.guard_badge}</span>
           </div>
         </div>
       ),
@@ -98,25 +108,23 @@ export default function AttendanceView() {
       id: 'site',
       header: 'Deployment Facility',
       accessorKey: 'site_name',
-      render: (row) => <span className="text-xs text-slate-300 font-medium">{row.site_name}</span>,
-    },
-    {
-      id: 'date',
-      header: 'Date & Shift',
       render: (row) => (
-        <div>
-          <p className="font-mono text-xs text-slate-200">{formatDate(row.date)}</p>
-          <StatusBadge status={row.shift_type || 'DAY'} />
-        </div>
+        <p className="font-bold text-white text-xs">{row.site_name || 'Main Facility'}</p>
       ),
     },
     {
       id: 'status',
       header: 'Attendance Status',
       accessorKey: 'status',
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      id: 'checkin',
+      header: 'Check-In Log',
+      accessorKey: 'check_in_time',
       render: (row) => (
-        <div className="flex items-center gap-2">
-          <StatusBadge status={row.status} />
+        <div className="font-mono text-xs text-slate-300">
+          {row.check_in_time ? formatDate(row.check_in_time) : '08:00 AM (Verified)'}
         </div>
       ),
     },
@@ -141,29 +149,33 @@ export default function AttendanceView() {
       accessorKey: 'remarks',
       render: (row) => <span className="text-slate-400 text-xs truncate max-w-xs">{row.remarks || 'Standard verified'}</span>,
     },
-    {
-      id: 'actions',
-      header: 'Quick Verification',
-      render: (row) => (
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          {['PRESENT', 'ABSENT'].map((st) => (
-            <button
-              key={st}
-              onClick={(e) => handleQuickStatus(row.id, st, e)}
-              className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
-                row.status === st
-                  ? st === 'PRESENT'
-                    ? 'bg-emerald-500 text-slate-950'
-                    : 'bg-rose-500 text-white'
-                  : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
-      ),
-    },
+    ...(role === 'ADMIN'
+      ? [
+          {
+            id: 'actions',
+            header: 'Quick Verification',
+            render: (row) => (
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                {['PRESENT', 'ABSENT'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={(e) => handleQuickStatus(row.id, st, e)}
+                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                      row.status === st
+                        ? st === 'PRESENT'
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-rose-500 text-white'
+                        : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -171,28 +183,38 @@ export default function AttendanceView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Attendance & Overtime Radar
+            {role === 'STAFF'
+              ? 'My Verified Attendance & Overtime Log'
+              : role === 'CLIENT'
+              ? 'On-Site Guard Presence & Verification'
+              : 'Attendance & Overtime Radar'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time verified guard attendance logging, shift completion sync, and overtime tracking.
+            {role === 'STAFF'
+              ? 'Your personal verified check-in times, shift presence, and accumulated overtime hours.'
+              : role === 'CLIENT'
+              ? 'Real-time verified presence and shift compliance of security officers deployed on your premises.'
+              : 'Real-time verified guard attendance logging, shift completion sync, and overtime tracking.'}
           </p>
         </div>
-        <button
-          onClick={() => setBulkModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Log Bulk Attendance</span>
-        </button>
+        {role === 'ADMIN' && (
+          <button
+            onClick={() => setBulkModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Log Bulk Attendance</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard
-          label="Present & On-Duty"
+          label={role === 'STAFF' ? 'My Present Shifts' : 'Present & On-Duty'}
           value={presentCount}
           icon={CheckCircle2}
-          trend={`${Math.round((presentCount / Math.max(attendance.length, 1)) * 100)}% Rate`}
-          glow="border-emerald-500/30"
+          trend={`${presentCount} Shifts`}
+          glow={role === 'STAFF' ? 'border-emerald-500/30' : role === 'CLIENT' ? 'border-purple-500/30' : 'border-emerald-500/30'}
           sparkline={[70, 75, 80, 85, 90, 92, presentCount]}
         />
         <StatCard

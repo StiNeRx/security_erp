@@ -6,11 +6,15 @@ import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 import DetailDrawer from '../components/DetailDrawer';
 import ClientModal from '../modals/ClientModal';
+import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
 import { INITIAL_CLIENTS, INITIAL_SITES, INITIAL_INVOICES } from '../api/mockData';
-import { Users, Plus, Building2, Mail, Phone, MapPin, Edit3, Shield } from 'lucide-react';
+import { Users, Plus, Building2, Mail, Phone, MapPin, Edit3, Shield, ShieldAlert } from 'lucide-react';
 
 export default function ClientsView() {
+  const { user } = useAuth();
+  const role = user?.role || 'ADMIN';
+
   const [clients, setClients] = useState(INITIAL_CLIENTS);
   const [sites, setSites] = useState(INITIAL_SITES);
   const [invoices, setInvoices] = useState(INITIAL_INVOICES);
@@ -55,7 +59,33 @@ export default function ClientsView() {
     setEditingClient(null);
   }
 
-  const filteredClients = clients.filter((client) => {
+  if (role === 'STAFF') {
+    return (
+      <MainLayout>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6 space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-white">Client Directory Restricted</h2>
+          <p className="text-xs text-slate-400 max-w-md">
+            Corporate client accounts and contractual agreements are restricted to Management and Client Representatives. For your post assignments and shift orders, please access the Guard Console.
+          </p>
+          <button
+            onClick={() => window.location.href = '/dashboard'}
+            className="px-4 py-2 bg-slate-900 border border-slate-700 hover:border-emerald-500 text-xs font-bold text-slate-200 rounded-xl transition-all"
+          >
+            Return to Officer Terminal
+          </button>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const scopedClients = role === 'CLIENT'
+    ? clients.filter((c) => c.id === 2 || c.company_name?.toLowerCase().includes('acme') || c.id === 1)
+    : clients;
+
+  const filteredClients = scopedClients.filter((client) => {
     const compName = client.company_name || '';
     const contact = client.contact_person || '';
     const email = client.contact_email || '';
@@ -127,24 +157,28 @@ export default function ClientsView() {
       accessorKey: 'is_active',
       render: (row) => <StatusBadge status={row.is_active ? 'ACTIVE' : 'INACTIVE'} />,
     },
-    {
-      id: 'actions',
-      header: 'Action',
-      render: (row) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => {
-              setEditingClient(row);
-              setModalOpen(true);
-            }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
-            title="Edit Client"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
-    },
+    ...(role === 'ADMIN'
+      ? [
+          {
+            id: 'actions',
+            header: 'Action',
+            render: (row) => (
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => {
+                    setEditingClient(row);
+                    setModalOpen(true);
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                  title="Edit Client"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -152,22 +186,26 @@ export default function ClientsView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Client Accounts & Contracts
+            {role === 'CLIENT' ? 'Corporate Account & Agreement' : 'Client Accounts & Contracts'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Manage client profiles, corporate addresses, GST credentials, and deployment locations.
+            {role === 'CLIENT'
+              ? 'Your registered enterprise profile, authorized POC, tax registration, and billing details.'
+              : 'Manage client profiles, corporate addresses, GST credentials, and deployment locations.'}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingClient(null);
-            setModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Client Company</span>
-        </button>
+        {role === 'ADMIN' && (
+          <button
+            onClick={() => {
+              setEditingClient(null);
+              setModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Client Company</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -277,16 +315,18 @@ export default function ClientsView() {
                   <span className="font-mono text-[10px] text-slate-500">
                     GST: {client.gst_number || 'UNREGISTERED'}
                   </span>
-                  <button
-                    onClick={() => {
-                      setEditingClient(client);
-                      setModalOpen(true);
-                    }}
-                    className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-cyan-400 transition-colors"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </button>
+                  {role === 'ADMIN' && (
+                    <button
+                      onClick={() => {
+                        setEditingClient(client);
+                        setModalOpen(true);
+                      }}
+                      className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-cyan-400 transition-colors"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -310,17 +350,19 @@ export default function ClientsView() {
         data={selectedClient}
         type="CLIENT ACCOUNT"
         actions={
-          <button
-            onClick={() => {
-              setEditingClient(selectedClient);
-              setSelectedClient(null);
-              setModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Edit Client</span>
-          </button>
+          role === 'ADMIN' ? (
+            <button
+              onClick={() => {
+                setEditingClient(selectedClient);
+                setSelectedClient(null);
+                setModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Client</span>
+            </button>
+          ) : null
         }
       />
 

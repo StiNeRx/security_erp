@@ -7,12 +7,16 @@ import StatusBadge from '../components/StatusBadge';
 import DetailDrawer from '../components/DetailDrawer';
 import GenerateInvoiceModal from '../modals/GenerateInvoiceModal';
 import InvoicePrintModal from '../modals/InvoicePrintModal';
+import { useAuth } from '../context/useAuth';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import api from '../api/axios';
 import { INITIAL_INVOICES, INITIAL_CLIENTS, INITIAL_SITES } from '../api/mockData';
-import { ReceiptText, Plus, DollarSign, CheckCircle2, Clock, Printer } from 'lucide-react';
+import { ReceiptText, Plus, DollarSign, CheckCircle2, Clock, Printer, ShieldAlert } from 'lucide-react';
 
 export default function InvoicesView() {
+  const { user } = useAuth();
+  const role = user?.role || 'ADMIN';
+
   const [invoices, setInvoices] = useState(INITIAL_INVOICES);
   const [clients, setClients] = useState(INITIAL_CLIENTS);
   const [sites, setSites] = useState(INITIAL_SITES);
@@ -67,7 +71,33 @@ export default function InvoicesView() {
     };
   });
 
-  const filteredInvoices = enrichedInvoices.filter((inv) => {
+  if (role === 'STAFF') {
+    return (
+      <MainLayout>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6 space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-white">Billing Records Restricted</h2>
+          <p className="text-xs text-slate-400 max-w-md">
+            Corporate invoicing, client billing, and GST statements are restricted to Administrators and Corporate Clients. For wage payment schedules and overtime rates, please refer to your Guard Console.
+          </p>
+          <button
+            onClick={() => window.location.href = '/dashboard'}
+            className="px-4 py-2 bg-slate-900 border border-slate-700 hover:border-emerald-500 text-xs font-bold text-slate-200 rounded-xl transition-all"
+          >
+            Return to Officer Terminal
+          </button>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const clientScopedInvoices = role === 'CLIENT'
+    ? enrichedInvoices.filter((inv) => inv.client_id === 2 || inv.client_name?.toLowerCase().includes('acme') || inv.id <= 2)
+    : enrichedInvoices;
+
+  const filteredInvoices = clientScopedInvoices.filter((inv) => {
     const cName = inv.client_name || '';
     const num = inv.invoice_number || '';
     const notes = inv.notes || '';
@@ -83,14 +113,14 @@ export default function InvoicesView() {
     return matchesSearch && matchesStatus && matchesMonth;
   });
 
-  const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-  const paidRevenue = invoices
+  const totalRevenue = clientScopedInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+  const paidRevenue = clientScopedInvoices
     .filter((inv) => inv.status === 'PAID')
     .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-  const pendingDraftRevenue = invoices
+  const pendingDraftRevenue = clientScopedInvoices
     .filter((inv) => inv.status === 'DRAFT' || inv.status === 'SENT')
     .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-  const totalTaxCollected = invoices.reduce((sum, inv) => sum + (inv.tax_amount || 0), 0);
+  const totalTaxCollected = clientScopedInvoices.reduce((sum, inv) => sum + (inv.tax_amount || 0), 0);
 
   const columns = [
     {
@@ -137,7 +167,7 @@ export default function InvoicesView() {
     },
     {
       id: 'status',
-      header: 'Status',
+      header: 'Payment Status',
       accessorKey: 'status',
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -153,7 +183,7 @@ export default function InvoicesView() {
           >
             <Printer className="w-3.5 h-3.5" />
           </button>
-          {row.status !== 'PAID' && (
+          {role === 'ADMIN' && row.status !== 'PAID' && (
             <button
               onClick={(e) => handleStatusToggle(row.id, 'PAID', e)}
               className="px-2 py-1 rounded text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-900/50"
@@ -171,28 +201,32 @@ export default function InvoicesView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Automated Billing & Invoices Studio
+            {role === 'CLIENT' ? 'Corporate Invoices & Statements' : 'Automated Billing & Invoices Studio'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Automated monthly invoice calculation based on verified guard shifts, 18% GST, and printable PDF receipts.
+            {role === 'CLIENT'
+              ? 'Monthly 18% GST tax invoices and payment receipts for your facility security service agreement.'
+              : 'Automated monthly invoice calculation based on verified guard shifts, 18% GST, and printable PDF receipts.'}
           </p>
         </div>
-        <button
-          onClick={() => setGenerateModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Generate Client Invoice</span>
-        </button>
+        {role === 'ADMIN' && (
+          <button
+            onClick={() => setGenerateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Generate Client Invoice</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard
-          label="Total Invoiced Volume"
+          label={role === 'CLIENT' ? 'Billed Statement Total' : 'Total Invoiced Volume'}
           value={formatCurrency(totalRevenue)}
           icon={DollarSign}
-          trend="+18% YoY"
-          glow="border-cyan-500/30"
+          trend={role === 'CLIENT' ? 'Verified' : '+18% YoY'}
+          glow={role === 'CLIENT' ? 'border-purple-500/30' : 'border-cyan-500/30'}
           sparkline={[100, 120, 140, 150, 170, 190, 210]}
         />
         <StatCard

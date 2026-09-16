@@ -6,12 +6,16 @@ import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 import DetailDrawer from '../components/DetailDrawer';
 import RosterModal from '../modals/RosterModal';
+import { useAuth } from '../context/useAuth';
 import { formatDate } from '../utils/helpers';
 import api from '../api/axios';
 import { INITIAL_ROSTERS, INITIAL_GUARDS, INITIAL_SITES } from '../api/mockData';
-import { Calendar, Plus, Sun, Moon, MapPin, Edit3, CheckCircle2 } from 'lucide-react';
+import { Calendar, Plus, Sun, Moon, MapPin, Edit3, CheckCircle2, Shield } from 'lucide-react';
 
 export default function RosterView() {
+  const { user } = useAuth();
+  const role = user?.role || 'ADMIN';
+
   const [rosters, setRosters] = useState(INITIAL_ROSTERS);
   const [guards, setGuards] = useState(INITIAL_GUARDS);
   const [sites, setSites] = useState(INITIAL_SITES);
@@ -68,7 +72,13 @@ export default function RosterView() {
     };
   });
 
-  const filteredRosters = enrichedRosters.filter((roster) => {
+  const scopedRosters = role === 'STAFF'
+    ? enrichedRosters.filter((r) => r.guard_name?.toLowerCase().includes('ramesh') || r.guard_badge === 'SG-001' || r.guard_id === 1 || r.id === 1)
+    : role === 'CLIENT'
+    ? enrichedRosters.filter((r) => r.site_id === 1 || r.site_name?.toLowerCase().includes('apex') || r.site_name?.toLowerCase().includes('acme') || r.id <= 3)
+    : enrichedRosters;
+
+  const filteredRosters = scopedRosters.filter((roster) => {
     const gName = roster.guard_name || '';
     const gBadge = roster.guard_badge || '';
     const sName = roster.site_name || '';
@@ -86,24 +96,24 @@ export default function RosterView() {
     return matchesSearch && matchesShift && matchesSite;
   });
 
-  const scheduledCount = rosters.filter((r) => r.status === 'SCHEDULED').length;
-  const completedCount = rosters.filter((r) => r.status === 'COMPLETED').length;
+  const scheduledCount = scopedRosters.filter((r) => r.status === 'SCHEDULED').length;
+  const completedCount = scopedRosters.filter((r) => r.status === 'COMPLETED').length;
   const dayShiftCount = rosters.filter((r) => r.shift_type === 'DAY').length;
   const nightShiftCount = rosters.filter((r) => r.shift_type === 'NIGHT').length;
 
   const columns = [
     {
       id: 'guard',
-      header: 'Assigned Guard',
+      header: 'Guard Personnel',
       accessorKey: 'guard_name',
       render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-xs">
-            {row.guard_name?.charAt(0) || 'G'}
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-400">
+            <Shield className="w-4 h-4" />
           </div>
           <div>
             <p className="font-bold text-white text-xs">{row.guard_name}</p>
-            <span className="font-mono text-[10px] text-cyan-400">{row.guard_badge}</span>
+            <span className="text-[10px] text-slate-400 font-mono">{row.guard_badge}</span>
           </div>
         </div>
       ),
@@ -113,9 +123,12 @@ export default function RosterView() {
       header: 'Deployment Facility',
       accessorKey: 'site_name',
       render: (row) => (
-        <div className="flex items-center gap-1.5 text-xs text-slate-300">
-          <MapPin className="w-3.5 h-3.5 text-slate-500" />
-          <span>{row.site_name}</span>
+        <div>
+          <p className="font-bold text-white text-xs">{row.site_name}</p>
+          <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+            <MapPin className="w-3 h-3 text-cyan-400" />
+            <span>Site Code #{row.site_id}</span>
+          </span>
         </div>
       ),
     },
@@ -123,11 +136,11 @@ export default function RosterView() {
       id: 'date',
       header: 'Shift Date',
       accessorKey: 'date',
-      render: (row) => <span className="font-mono text-xs text-slate-200">{formatDate(row.date)}</span>,
+      render: (row) => <span className="font-mono text-xs text-slate-300">{formatDate(row.date)}</span>,
     },
     {
-      id: 'shift_type',
-      header: 'Shift Slot',
+      id: 'shift',
+      header: 'Shift Type',
       accessorKey: 'shift_type',
       render: (row) => <StatusBadge status={row.shift_type} />,
     },
@@ -138,26 +151,25 @@ export default function RosterView() {
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
-      id: 'notes',
-      header: 'Station / Instructions',
-      accessorKey: 'notes',
-      render: (row) => <span className="text-slate-400 text-xs truncate max-w-xs">{row.notes || '—'}</span>,
-    },
-    {
       id: 'actions',
-      header: 'Action',
+      header: 'Actions',
       render: (row) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => {
-              setEditingRoster(row);
-              setModalOpen(true);
-            }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
-            title="Modify Shift"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
+          {role === 'ADMIN' && (
+            <button
+              onClick={() => {
+                setEditingRoster(row);
+                setModalOpen(true);
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+              title="Edit Shift"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <span className="text-[10px] font-mono text-slate-500">
+            {row.notes || 'Station Duty'}
+          </span>
         </div>
       ),
     },
@@ -168,31 +180,41 @@ export default function RosterView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Duty Rosters & Shift Matrix
+            {role === 'STAFF'
+              ? 'My Duty Schedule & Post Orders'
+              : role === 'CLIENT'
+              ? 'Facility Security Roster // Acme Corp'
+              : 'Duty Rosters & Shift Matrix'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Allocate security personnel across Day & Night shifts with single or weekly batch dispatch.
+            {role === 'STAFF'
+              ? 'Your personal upcoming shift allocations, facility gate posts, and duty timings.'
+              : role === 'CLIENT'
+              ? 'Daily scheduled security officers deployed across your contracted corporate facilities.'
+              : 'Allocate security personnel across Day & Night shifts with single or weekly batch dispatch.'}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingRoster(null);
-            setModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Schedule Shift Slots</span>
-        </button>
+        {role === 'ADMIN' && (
+          <button
+            onClick={() => {
+              setEditingRoster(null);
+              setModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Schedule Shift Slots</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard
-          label="Scheduled Upcoming"
+          label={role === 'STAFF' ? 'My Scheduled Shifts' : 'Scheduled Upcoming'}
           value={scheduledCount}
           icon={Calendar}
-          trend={`${scheduledCount} Pending`}
-          glow="border-cyan-500/30"
+          trend={`${scheduledCount} Shifts`}
+          glow={role === 'STAFF' ? 'border-emerald-500/30' : role === 'CLIENT' ? 'border-purple-500/30' : 'border-cyan-500/30'}
           sparkline={[30, 40, 35, 50, 45, 60, scheduledCount]}
         />
         <StatCard

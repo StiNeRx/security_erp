@@ -39,7 +39,9 @@ export default function MainLayout({ children, onQuickAction = null }) {
     return () => clearInterval(timer);
   }, []);
 
-  const navItems = [
+  const role = user?.role || 'ADMIN';
+
+  let navItems = [
     { icon: LayoutDashboard, label: 'Command Center', path: '/dashboard' },
     { icon: Shield, label: 'Guard Personnel', path: '/personnel' },
     { icon: Users, label: 'Client Accounts', path: '/clients' },
@@ -48,6 +50,22 @@ export default function MainLayout({ children, onQuickAction = null }) {
     { icon: ClipboardList, label: 'Attendance & OT', path: '/attendance' },
     { icon: ReceiptText, label: 'Billing / Invoices', path: '/billing' },
   ];
+
+  if (role === 'CLIENT') {
+    navItems = [
+      { icon: LayoutDashboard, label: 'Facility Overview', path: '/dashboard' },
+      { icon: MapPin, label: 'My Facilities', path: '/sites' },
+      { icon: Calendar, label: 'Shift Rosters', path: '/rosters' },
+      { icon: ClipboardList, label: 'Guard Attendance', path: '/attendance' },
+      { icon: ReceiptText, label: 'Invoices & Statements', path: '/billing' },
+    ];
+  } else if (role === 'STAFF') {
+    navItems = [
+      { icon: LayoutDashboard, label: 'Guard Terminal', path: '/dashboard' },
+      { icon: Calendar, label: 'My Duty Schedule', path: '/rosters' },
+      { icon: ClipboardList, label: 'My Attendance & OT', path: '/attendance' },
+    ];
+  }
 
   return (
     <div className="min-h-screen bg-[#060913] text-slate-200 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -127,13 +145,21 @@ export default function MainLayout({ children, onQuickAction = null }) {
               onClick={() => setPersonaMenuOpen(!personaMenuOpen)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl cyber-panel border border-slate-800 hover:border-cyan-500/40 text-left transition-all"
             >
-              <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-bold text-xs">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                role === 'CLIENT'
+                  ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
+                  : role === 'STAFF'
+                  ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                  : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300'
+              }`}>
                 {user?.full_name?.charAt(0) || 'U'}
               </div>
               <div className="hidden md:block">
                 <p className="text-xs font-bold text-white leading-none">{user?.full_name?.split(' ')[0] || 'Admin'}</p>
-                <span className="text-[9px] font-mono uppercase text-cyan-400 tracking-wider font-semibold">
-                  {user?.role || 'ADMIN'}
+                <span className={`text-[9px] font-mono uppercase tracking-wider font-semibold ${
+                  role === 'CLIENT' ? 'text-purple-400' : role === 'STAFF' ? 'text-emerald-400' : 'text-cyan-400'
+                }`}>
+                  {role}
                 </span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />

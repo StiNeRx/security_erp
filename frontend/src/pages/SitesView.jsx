@@ -6,11 +6,15 @@ import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 import DetailDrawer from '../components/DetailDrawer';
 import SiteModal from '../modals/SiteModal';
+import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
 import { INITIAL_SITES, INITIAL_CLIENTS, INITIAL_ROSTERS } from '../api/mockData';
 import { MapPin, Plus, Building2, Sun, Moon, ShieldCheck, Edit3, Phone } from 'lucide-react';
 
 export default function SitesView() {
+  const { user } = useAuth();
+  const role = user?.role || 'ADMIN';
+
   const [sites, setSites] = useState(INITIAL_SITES);
   const [clients, setClients] = useState(INITIAL_CLIENTS);
   const [rosters, setRosters] = useState(INITIAL_ROSTERS);
@@ -55,7 +59,13 @@ export default function SitesView() {
     setEditingSite(null);
   }
 
-  const filteredSites = sites.filter((site) => {
+  const scopedSites = role === 'CLIENT'
+    ? sites.filter((s) => s.client_id === 2 || s.client_name?.toLowerCase().includes('acme') || s.id <= 2)
+    : role === 'STAFF'
+    ? sites.filter((s) => s.id === 1 || s.id <= 2)
+    : sites;
+
+  const filteredSites = scopedSites.filter((site) => {
     const name = site.site_name || '';
     const code = site.site_code || '';
     const city = site.city || '';
@@ -71,8 +81,8 @@ export default function SitesView() {
     return matchesSearch && matchesClient;
   });
 
-  const totalDayQuotas = sites.reduce((sum, s) => sum + (s.shift_requirements?.day_shift_guards || 0), 0);
-  const totalNightQuotas = sites.reduce((sum, s) => sum + (s.shift_requirements?.night_shift_guards || 0), 0);
+  const totalDayQuotas = scopedSites.reduce((sum, s) => sum + (s.shift_requirements?.day_shift_guards || 0), 0);
+  const totalNightQuotas = scopedSites.reduce((sum, s) => sum + (s.shift_requirements?.night_shift_guards || 0), 0);
 
   const columns = [
     {
@@ -80,7 +90,6 @@ export default function SitesView() {
       header: 'Deployment Facility',
       accessorKey: 'site_name',
       render: (row) => {
-        const client = clients.find((c) => c.id === row.client_id);
         return (
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-xs">
@@ -88,7 +97,7 @@ export default function SitesView() {
             </div>
             <div>
               <p className="font-bold text-white text-xs">{row.site_name}</p>
-              <p className="text-[10px] text-slate-400">{client?.company_name || `Client #${row.client_id}`}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{row.address}, {row.city}</p>
             </div>
           </div>
         );
@@ -98,56 +107,46 @@ export default function SitesView() {
       id: 'code',
       header: 'Site Code',
       accessorKey: 'site_code',
-      render: (row) => (
-        <span className="font-mono text-xs text-cyan-400 font-semibold px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/20">
-          {row.site_code}
-        </span>
-      ),
-    },
-    {
-      id: 'location',
-      header: 'Location / City',
-      render: (row) => (
-        <span className="text-xs text-slate-300">
-          {row.city}, {row.state}
-        </span>
-      ),
+      render: (row) => <span className="font-mono text-xs font-bold text-cyan-400">{row.site_code}</span>,
     },
     {
       id: 'quotas',
-      header: 'Guard Quotas (Day / Night)',
+      header: 'Shift Quotas',
       render: (row) => (
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-amber-400">☀️ {row.shift_requirements?.day_shift_guards || 1}</span>
-          <span className="text-slate-600">/</span>
-          <span className="text-indigo-400">🌙 {row.shift_requirements?.night_shift_guards || 1}</span>
+        <div className="text-xs space-y-0.5">
+          <p className="text-slate-300">Day: <span className="font-bold text-amber-400">{row.shift_requirements?.day_shift_guards || 1}</span></p>
+          <p className="text-slate-400">Night: <span className="font-bold text-indigo-400">{row.shift_requirements?.night_shift_guards || 1}</span></p>
         </div>
       ),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: 'Facility Status',
       accessorKey: 'is_active',
       render: (row) => <StatusBadge status={row.is_active ? 'ACTIVE' : 'INACTIVE'} />,
     },
-    {
-      id: 'actions',
-      header: 'Action',
-      render: (row) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => {
-              setEditingSite(row);
-              setModalOpen(true);
-            }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
-            title="Edit Site"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
-    },
+    ...(role === 'ADMIN'
+      ? [
+          {
+            id: 'actions',
+            header: 'Actions',
+            render: (row) => (
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => {
+                    setEditingSite(row);
+                    setModalOpen(true);
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                  title="Edit Site"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -155,31 +154,41 @@ export default function SitesView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Deployment Sites & Facilities
+            {role === 'CLIENT'
+              ? 'My Protected Facilities & Quotas'
+              : role === 'STAFF'
+              ? 'Facility Deployment Posts'
+              : 'Deployment Sites & Facilities'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Configure surveillance locations, client contracts, and day/night shift guard quotas.
+            {role === 'CLIENT'
+              ? 'Active facility locations, post deployment addresses, and contracted day/night security quotas.'
+              : role === 'STAFF'
+              ? 'Official client facility locations, gate access perimeters, and assigned shift quotas.'
+              : 'Configure surveillance locations, client contracts, and day/night shift guard quotas.'}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingSite(null);
-            setModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Deployment Site</span>
-        </button>
+        {role === 'ADMIN' && (
+          <button
+            onClick={() => {
+              setEditingSite(null);
+              setModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all shadow-lg shadow-cyan-500/20 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Deployment Site</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
-          label="Total Facilities"
-          value={sites.length}
+          label={role === 'CLIENT' ? 'My Contracted Sites' : 'Total Facilities'}
+          value={scopedSites.length}
           icon={MapPin}
-          trend={`${sites.filter((s) => s.is_active).length} Active`}
-          glow="border-cyan-500/30"
+          trend={`${scopedSites.filter((s) => s.is_active).length} Active`}
+          glow={role === 'CLIENT' ? 'border-purple-500/30' : 'border-cyan-500/30'}
           sparkline={[2, 3, 3, 4, 4, 4, sites.length]}
         />
         <StatCard
