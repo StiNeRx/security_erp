@@ -1,63 +1,90 @@
 /**
- * High-fidelity fallback demo dataset matching backend SQLAlchemy schemas.
+ * High-fidelity fallback demo dataset — Fortellus Enterprise ERP v2.0
+ * Mirrors the seeded Supabase accounts exactly (all passwords: auth0000).
  */
 
 export const INITIAL_USERS = [
   {
     id: 1,
-    email: "admin@securityerp.com",
-    full_name: "System Administrator",
-    phone_number: "+91-9876543210",
-    role: "ADMIN",
-    is_active: true,
-    is_superuser: true,
-    created_at: "2026-01-01T00:00:00Z"
-  },
-  {
-    id: 99,
-    email: "stiner@example.com",
-    full_name: "Stiner Administrator",
-    phone_number: "+91-9876543299",
-    role: "ADMIN",
+    email: "owner@fortellus.com",
+    full_name: "Fortellus Owner",
+    phone_number: "+91-9000000001",
+    role: "OWNER",
     is_active: true,
     is_superuser: true,
     created_at: "2026-01-01T00:00:00Z"
   },
   {
     id: 2,
-    email: "client.manager@acmecorp.com",
-    full_name: "John Doe (Acme Corp)",
-    phone_number: "+91-9876543211",
+    email: "superadmin@fortellus.com",
+    full_name: "Super Administrator",
+    phone_number: "+91-9000000002",
+    role: "SUPER_ADMIN",
+    is_active: true,
+    is_superuser: true,
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: 3,
+    email: "hr@fortellus.com",
+    full_name: "HR Manager",
+    phone_number: "+91-9000000003",
+    role: "HR",
+    is_active: true,
+    is_superuser: false,
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: 4,
+    email: "operations@fortellus.com",
+    full_name: "Operations Manager",
+    phone_number: "+91-9000000004",
+    role: "OPERATIONS",
+    is_active: true,
+    is_superuser: false,
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: 5,
+    email: "accounts@fortellus.com",
+    full_name: "Accounts Manager",
+    phone_number: "+91-9000000005",
+    role: "ACCOUNTS",
+    is_active: true,
+    is_superuser: false,
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: 6,
+    email: "supervisor@fortellus.com",
+    full_name: "Field Supervisor",
+    phone_number: "+91-9000000006",
+    role: "SUPERVISOR",
+    is_active: true,
+    is_superuser: false,
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: 7,
+    email: "client@techpark.com",
+    full_name: "TechPark Client POC",
+    phone_number: "+91-9000000007",
     role: "CLIENT",
     is_active: true,
     is_superuser: false,
     created_at: "2026-01-10T00:00:00Z"
   },
   {
-    id: 3,
-    email: "guard.ramesh@securityerp.com",
-    full_name: "Ramesh Kumar",
-    phone_number: "+91-9876543212",
+    id: 8,
+    email: "guard@fortellus.com",
+    full_name: "Field Guard",
+    phone_number: "+91-9000000008",
     role: "STAFF",
     is_active: true,
     is_superuser: false,
     created_at: "2026-01-15T00:00:00Z"
   },
   {
-    id: 4,
-    email: "guard.suresh@securityerp.com",
-    full_name: "Suresh Singh",
-    phone_number: "+91-9876543213",
-    role: "STAFF",
-    is_active: true,
-    is_superuser: false,
-    created_at: "2026-02-01T00:00:00Z"
-  },
-  {
-    id: 5,
-    email: "guard.vikram@securityerp.com",
-    full_name: "Vikram Sharma",
-    phone_number: "+91-9876543214",
     role: "STAFF",
     is_active: true,
     is_superuser: false,

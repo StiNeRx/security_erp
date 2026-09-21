@@ -2,14 +2,22 @@ import enum
 
 
 class UserRole(str, enum.Enum):
+    OWNER = "OWNER"
+    SUPER_ADMIN = "SUPER_ADMIN"
     ADMIN = "ADMIN"
+    HR = "HR"
+    OPERATIONS = "OPERATIONS"
+    ACCOUNTS = "ACCOUNTS"
+    SUPERVISOR = "SUPERVISOR"
     CLIENT = "CLIENT"
     STAFF = "STAFF"
 
 
 class GuardStatus(str, enum.Enum):
     ACTIVE = "ACTIVE"
+    BENCH = "BENCH"
     ON_LEAVE = "ON_LEAVE"
+    INACTIVE = "INACTIVE"
     TERMINATED = "TERMINATED"
 
 

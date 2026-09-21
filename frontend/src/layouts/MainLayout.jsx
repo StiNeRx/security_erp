@@ -41,9 +41,10 @@ export default function MainLayout({ children, onQuickAction = null }) {
 
   const role = user?.role || 'ADMIN';
 
-  let navItems = [
+  // Full admin suite (OWNER, SUPER_ADMIN, ADMIN)
+  const fullNavItems = [
     { icon: LayoutDashboard, label: 'Command Center', path: '/dashboard' },
-    { icon: Shield, label: 'Guard Personnel', path: '/personnel' },
+    { icon: Shield, label: 'Staff Personnel', path: '/personnel' },
     { icon: Users, label: 'Client Accounts', path: '/clients' },
     { icon: MapPin, label: 'Deployment Sites', path: '/sites' },
     { icon: Calendar, label: 'Duty Rosters', path: '/rosters' },
@@ -51,7 +52,39 @@ export default function MainLayout({ children, onQuickAction = null }) {
     { icon: ReceiptText, label: 'Billing / Invoices', path: '/billing' },
   ];
 
-  if (role === 'CLIENT') {
+  let navItems = fullNavItems;
+
+  if (role === 'OWNER') {
+    navItems = [
+      { icon: LayoutDashboard, label: 'Executive Dashboard', path: '/owner-executive' },
+      { icon: LayoutDashboard, label: 'Command Center', path: '/dashboard' },
+      { icon: Shield, label: 'Staff Personnel', path: '/personnel' },
+      { icon: Users, label: 'Client Accounts', path: '/clients' },
+      { icon: MapPin, label: 'Deployment Sites', path: '/sites' },
+      { icon: Calendar, label: 'Duty Rosters', path: '/rosters' },
+      { icon: ClipboardList, label: 'Attendance & OT', path: '/attendance' },
+      { icon: ReceiptText, label: 'Billing / Invoices', path: '/billing' },
+    ];
+  } else if (role === 'HR') {
+    navItems = [
+      { icon: LayoutDashboard, label: 'HR Dashboard', path: '/dashboard' },
+      { icon: Shield, label: 'Staff Personnel', path: '/personnel' },
+      { icon: ClipboardList, label: 'Attendance Records', path: '/attendance' },
+    ];
+  } else if (role === 'OPERATIONS' || role === 'SUPERVISOR') {
+    navItems = [
+      { icon: LayoutDashboard, label: 'Ops Dashboard', path: '/dashboard' },
+      { icon: MapPin, label: 'Deployment Sites', path: '/sites' },
+      { icon: Calendar, label: 'Duty Rosters', path: '/rosters' },
+      { icon: ClipboardList, label: 'Attendance & OT', path: '/attendance' },
+    ];
+  } else if (role === 'ACCOUNTS') {
+    navItems = [
+      { icon: LayoutDashboard, label: 'Accounts Dashboard', path: '/dashboard' },
+      { icon: Users, label: 'Client Accounts', path: '/clients' },
+      { icon: ReceiptText, label: 'Billing / Invoices', path: '/billing' },
+    ];
+  } else if (role === 'CLIENT') {
     navItems = [
       { icon: LayoutDashboard, label: 'Facility Overview', path: '/dashboard' },
       { icon: MapPin, label: 'My Facilities', path: '/sites' },
@@ -66,6 +99,7 @@ export default function MainLayout({ children, onQuickAction = null }) {
       { icon: ClipboardList, label: 'My Attendance & OT', path: '/attendance' },
     ];
   }
+
 
   return (
     <div className="min-h-screen bg-[#060913] text-slate-200 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -96,10 +130,11 @@ export default function MainLayout({ children, onQuickAction = null }) {
             </div>
             <div>
               <span className="text-base font-extrabold text-white tracking-wider flex items-center gap-1.5">
-                APEX <span className="text-cyan-400 font-mono text-sm font-semibold">OPS // 2026</span>
+                FORTELLUS <span className="text-cyan-400 font-mono text-sm font-semibold">ERP // 2026</span>
               </span>
-              <p className="text-[10px] text-slate-500 font-mono hidden sm:block">SECURITY & FACILITY ERP</p>
+              <p className="text-[10px] text-slate-500 font-mono hidden sm:block">SECURITY & FACILITY MANAGEMENT</p>
             </div>
+
           </div>
         </div>
 
@@ -146,10 +181,16 @@ export default function MainLayout({ children, onQuickAction = null }) {
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl cyber-panel border border-slate-800 hover:border-cyan-500/40 text-left transition-all"
             >
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
-                role === 'CLIENT'
+                role === 'OWNER'
+                  ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
+                  : role === 'CLIENT'
                   ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
                   : role === 'STAFF'
                   ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                  : role === 'HR'
+                  ? 'bg-rose-500/20 border border-rose-500/40 text-rose-300'
+                  : role === 'ACCOUNTS'
+                  ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
                   : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300'
               }`}>
                 {user?.full_name?.charAt(0) || 'U'}
@@ -157,7 +198,12 @@ export default function MainLayout({ children, onQuickAction = null }) {
               <div className="hidden md:block">
                 <p className="text-xs font-bold text-white leading-none">{user?.full_name?.split(' ')[0] || 'Admin'}</p>
                 <span className={`text-[9px] font-mono uppercase tracking-wider font-semibold ${
-                  role === 'CLIENT' ? 'text-purple-400' : role === 'STAFF' ? 'text-emerald-400' : 'text-cyan-400'
+                  role === 'OWNER' ? 'text-amber-400'
+                  : role === 'CLIENT' ? 'text-purple-400'
+                  : role === 'STAFF' ? 'text-emerald-400'
+                  : role === 'HR' ? 'text-rose-400'
+                  : role === 'ACCOUNTS' ? 'text-violet-400'
+                  : 'text-cyan-400'
                 }`}>
                   {role}
                 </span>
@@ -166,38 +212,29 @@ export default function MainLayout({ children, onQuickAction = null }) {
             </button>
 
             {personaMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 cyber-panel-glow rounded-2xl border border-cyan-500/30 p-2 shadow-2xl z-40">
+              <div className="absolute right-0 top-full mt-2 w-60 cyber-panel-glow rounded-2xl border border-cyan-500/30 p-2 shadow-2xl z-40">
                 <p className="text-[10px] text-slate-400 uppercase font-mono px-3 py-1">Quick Role Switcher</p>
-                
-                <button
-                  onClick={() => { switchPersona('ADMIN'); setPersonaMenuOpen(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors flex items-center justify-between ${
-                    user?.role === 'ADMIN' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <span>Admin Persona</span>
-                  <span className="text-[10px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-cyan-400">Full</span>
-                </button>
 
-                <button
-                  onClick={() => { switchPersona('CLIENT'); setPersonaMenuOpen(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors flex items-center justify-between ${
-                    user?.role === 'CLIENT' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <span>Client Manager</span>
-                  <span className="text-[10px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-purple-400">Acme</span>
-                </button>
-
-                <button
-                  onClick={() => { switchPersona('STAFF'); setPersonaMenuOpen(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors flex items-center justify-between ${
-                    user?.role === 'STAFF' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <span>Staff Guard</span>
-                  <span className="text-[10px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-amber-400">Ramesh</span>
-                </button>
+                {[
+                  { role: 'OWNER', label: 'Owner / CEO', color: 'text-amber-400' },
+                  { role: 'SUPER_ADMIN', label: 'Super Admin', color: 'text-cyan-400' },
+                  { role: 'HR', label: 'HR Manager', color: 'text-rose-400' },
+                  { role: 'OPERATIONS', label: 'Operations Mgr', color: 'text-sky-400' },
+                  { role: 'ACCOUNTS', label: 'Accounts Mgr', color: 'text-violet-400' },
+                  { role: 'CLIENT', label: 'Client Portal', color: 'text-purple-400' },
+                  { role: 'STAFF', label: 'Field Guard', color: 'text-emerald-400' },
+                ].map(({ role: r, label, color }) => (
+                  <button
+                    key={r}
+                    onClick={() => { switchPersona(r); setPersonaMenuOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors flex items-center justify-between ${
+                      user?.role === r ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span className={`text-[10px] font-mono bg-slate-900 px-1.5 py-0.5 rounded ${color}`}>{r}</span>
+                  </button>
+                ))}
 
                 <div className="h-px bg-slate-800 my-1.5" />
 
@@ -213,6 +250,7 @@ export default function MainLayout({ children, onQuickAction = null }) {
           </div>
         </div>
       </header>
+
 
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-64 cyber-panel border-r border-slate-800/80 hidden md:flex flex-col p-4 space-y-1.5">

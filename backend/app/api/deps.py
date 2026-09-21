@@ -55,11 +55,14 @@ def get_current_active_user(
     return current_user
 
 
+ADMIN_ROLES = [UserRole.OWNER, UserRole.SUPER_ADMIN, UserRole.ADMIN]
+
+
 def get_current_active_superuser(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
-    """Ensure the user is an active superuser or ADMIN."""
-    if not (current_user.is_superuser or current_user.role == UserRole.ADMIN):
+    """Ensure the user is an active superuser, OWNER, or ADMIN."""
+    if not (current_user.is_superuser or current_user.role in ADMIN_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user does not have administrative privileges.",
@@ -70,13 +73,14 @@ def get_current_active_superuser(
 class RoleChecker:
     """Dependency for enforcing Role-Based Access Control (RBAC)."""
 
-    def __init__(self, allowed_roles: List[UserRole]):
+    def __init__(self, allowed_roles: List[UserRole], allow_super_admin: bool = True):
         self.allowed_roles = allowed_roles
+        self.allow_super_admin = allow_super_admin
 
     def __call__(
         self, current_user: User = Depends(get_current_active_user)
     ) -> User:
-        if current_user.is_superuser:
+        if self.allow_super_admin and (current_user.is_superuser or current_user.role in [UserRole.OWNER, UserRole.SUPER_ADMIN]):
             return current_user
         if current_user.role not in self.allowed_roles:
             role_names = [r.value for r in self.allowed_roles]
@@ -88,8 +92,13 @@ class RoleChecker:
 
 
 # Pre-configured RBAC dependencies
-require_admin = RoleChecker([UserRole.ADMIN])
+require_owner = RoleChecker([UserRole.OWNER], allow_super_admin=False)
+require_admin = RoleChecker([UserRole.OWNER, UserRole.SUPER_ADMIN, UserRole.ADMIN])
+require_hr_or_admin = RoleChecker([UserRole.OWNER, UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.HR])
+require_ops_or_admin = RoleChecker([UserRole.OWNER, UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATIONS, UserRole.SUPERVISOR])
+require_accounts_or_admin = RoleChecker([UserRole.OWNER, UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS])
 require_client = RoleChecker([UserRole.CLIENT])
 require_staff = RoleChecker([UserRole.STAFF])
-require_admin_or_client = RoleChecker([UserRole.ADMIN, UserRole.CLIENT])
-require_admin_or_staff = RoleChecker([UserRole.ADMIN, UserRole.STAFF])
+require_admin_or_client = RoleChecker([UserRole.OWNER, UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.CLIENT])
+require_admin_or_staff = RoleChecker([UserRole.OWNER, UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.STAFF])
+
