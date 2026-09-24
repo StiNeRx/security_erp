@@ -4,6 +4,9 @@ from app.models.base import BaseModel, TimestampMixin
 from app.models.enums import (
     UserRole,
     GuardStatus,
+    StaffVertical,
+    StaffCategory,
+    CandidateStatus,
     ShiftType,
     RosterStatus,
     AttendanceStatus,
@@ -13,6 +16,7 @@ from app.models.user import User
 from app.models.client import Client
 from app.models.site import Site
 from app.models.guard import GuardProfile
+from app.models.recruitment import Candidate
 from app.models.roster import ShiftRoster
 from app.models.attendance import Attendance
 from app.models.invoice import Invoice
@@ -23,6 +27,9 @@ __all__ = [
     "TimestampMixin",
     "UserRole",
     "GuardStatus",
+    "StaffVertical",
+    "StaffCategory",
+    "CandidateStatus",
     "ShiftType",
     "RosterStatus",
     "AttendanceStatus",
@@ -31,6 +38,7 @@ __all__ = [
     "Client",
     "Site",
     "GuardProfile",
+    "Candidate",
     "ShiftRoster",
     "Attendance",
     "Invoice",

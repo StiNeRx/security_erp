@@ -21,6 +21,32 @@ class GuardStatus(str, enum.Enum):
     TERMINATED = "TERMINATED"
 
 
+class StaffVertical(str, enum.Enum):
+    SECURITY = "SECURITY"
+    HOUSEKEEPING = "HOUSEKEEPING"
+    NURSING = "NURSING"
+
+
+class StaffCategory(str, enum.Enum):
+    GUARD = "GUARD"
+    GUNMAN = "GUNMAN"
+    HEAD_GUARD = "HEAD_GUARD"
+    SUPERVISOR = "SUPERVISOR"
+    FIELD_OFFICER = "FIELD_OFFICER"
+    JANITOR = "JANITOR"
+    HOUSEKEEPER = "HOUSEKEEPER"
+    NURSE_ASSISTANT = "NURSE_ASSISTANT"
+    GDA = "GDA"
+
+
+class CandidateStatus(str, enum.Enum):
+    APPLIED = "APPLIED"
+    VERIFIED = "VERIFIED"
+    ONBOARDED = "ONBOARDED"
+    REJECTED = "REJECTED"
+
+
+
 class ShiftType(str, enum.Enum):
     DAY = "DAY"
     NIGHT = "NIGHT"

@@ -24,9 +24,12 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(
-    subject: Union[str, Any], expires_delta: Optional[timedelta] = None
+    subject: Union[str, Any],
+    expires_delta: Optional[timedelta] = None,
+    role: Optional[str] = None,
+    **extra_claims: Any,
 ) -> str:
-    """Create a signed JWT access token with expiration."""
+    """Create a signed JWT access token with expiration and optional claims."""
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -34,7 +37,11 @@ def create_access_token(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
     to_encode = {"exp": expire, "sub": str(subject)}
+    if role is not None:
+        to_encode["role"] = str(role)
+    to_encode.update(extra_claims)
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
     return encoded_jwt
+

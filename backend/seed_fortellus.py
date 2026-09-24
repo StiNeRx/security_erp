@@ -23,21 +23,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from app.core.security import get_password_hash
 from app.models.enums import UserRole
 from app.models.user import User
-from app.core.database import Base
+from app.core.database import Base, engine, SessionLocal
 
-# -- Supabase connection (pooler, IPv4) --------------------------------------
-DB_URL = (
-    "postgresql://postgres.wqtciwpwjthvfikadffh:Fortellus%23admin"
-    "@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
-)
-
-engine = create_engine(DB_URL, pool_pre_ping=True, pool_size=3, max_overflow=5)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 print("=" * 65)
 print("  FORTELLUS ENTERPRISE ERP - SUPABASE SEED (Phase 1)")

@@ -1,13 +1,15 @@
-from typing import List, Optional
+from datetime import date, timedelta
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_active_user, require_admin
+from app.api.deps import get_current_active_user, require_admin, require_hr_or_admin
 from app.core.database import get_db
 from app.crud.crud_guard import guard as crud_guard
 from app.crud.crud_user import user as crud_user
 from app.crud.crud_roster import roster as crud_roster
-from app.models.enums import GuardStatus, UserRole
+from app.models.guard import GuardProfile
+from app.models.enums import GuardStatus, StaffVertical, StaffCategory, UserRole
 from app.models.user import User
 from app.schemas.guard import (
     GuardProfileCreate,
@@ -25,9 +27,12 @@ def read_guards(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     status: Optional[GuardStatus] = None,
+    vertical: Optional[StaffVertical] = None,
+    category: Optional[StaffCategory] = None,
+    bench_locked_only: Optional[bool] = None,
     current_user: User = Depends(get_current_active_user),
 ) -> List[GuardProfileResponse]:
-    """Retrieve security guard profiles. Admin sees all; Staff sees own profile only."""
+    """Retrieve security/staff profiles. Supports vertical, category, status, and bench-lock filters."""
     if current_user.role == UserRole.CLIENT and not current_user.is_superuser:
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
@@ -40,10 +45,134 @@ def read_guards(
             return []
         return [own_guard]
 
-    # ADMIN
+    # Admin / HR / Operations query
+    query = db.query(GuardProfile)
     if status:
-        return crud_guard.get_by_status(db, status=status, skip=skip, limit=limit)
-    return crud_guard.get_multi(db, skip=skip, limit=limit)
+        query = query.filter(GuardProfile.status == status)
+    if vertical:
+        query = query.filter(GuardProfile.vertical == vertical)
+    if category:
+        query = query.filter(GuardProfile.category == category)
+    if bench_locked_only is not None:
+        query = query.filter(GuardProfile.is_bench_locked == bench_locked_only)
+
+    return query.offset(skip).limit(limit).all()
+
+
+@router.get("/compliance/expiries", response_model=Dict[str, Any])
+def get_compliance_expiries(
+    db: Session = Depends(get_db),
+    days_ahead: int = Query(60, ge=1, le=180),
+    current_user: User = Depends(require_hr_or_admin),
+) -> Dict[str, Any]:
+    """
+    Compliance Expiry Summary Report:
+    Scans all staff compliance records and flags documents expiring within 30/45/60 days or already expired.
+    """
+    today = date.today()
+    threshold = today + timedelta(days=days_ahead)
+
+    all_staff = db.query(GuardProfile).filter(GuardProfile.status != GuardStatus.TERMINATED).all()
+
+    expired_list = []
+    expiring_soon_list = []
+
+    for staff in all_staff:
+        # Check Police Verification
+        if staff.police_verification_expiry:
+            if staff.police_verification_expiry < today:
+                expired_list.append({
+                    "staff_id": staff.id,
+                    "badge_number": staff.badge_number,
+                    "intimation_id": staff.intimation_id,
+                    "document_type": "Police Verification",
+                    "expiry_date": staff.police_verification_expiry.isoformat(),
+                    "days_remaining": (staff.police_verification_expiry - today).days,
+                    "status": "EXPIRED",
+                })
+            elif staff.police_verification_expiry <= threshold:
+                expiring_soon_list.append({
+                    "staff_id": staff.id,
+                    "badge_number": staff.badge_number,
+                    "intimation_id": staff.intimation_id,
+                    "document_type": "Police Verification",
+                    "expiry_date": staff.police_verification_expiry.isoformat(),
+                    "days_remaining": (staff.police_verification_expiry - today).days,
+                    "status": "EXPIRING_SOON",
+                })
+        else:
+            expired_list.append({
+                "staff_id": staff.id,
+                "badge_number": staff.badge_number,
+                "intimation_id": staff.intimation_id,
+                "document_type": "Police Verification",
+                "expiry_date": None,
+                "days_remaining": -999,
+                "status": "MISSING",
+            })
+
+        # Check Gun License (for gunmen)
+        if staff.category == StaffCategory.GUNMAN:
+            if staff.arms_expiry_date:
+                if staff.arms_expiry_date < today:
+                    expired_list.append({
+                        "staff_id": staff.id,
+                        "badge_number": staff.badge_number,
+                        "intimation_id": staff.intimation_id,
+                        "document_type": "Gun License",
+                        "expiry_date": staff.arms_expiry_date.isoformat(),
+                        "days_remaining": (staff.arms_expiry_date - today).days,
+                        "status": "EXPIRED",
+                    })
+                elif staff.arms_expiry_date <= threshold:
+                    expiring_soon_list.append({
+                        "staff_id": staff.id,
+                        "badge_number": staff.badge_number,
+                        "intimation_id": staff.intimation_id,
+                        "document_type": "Gun License",
+                        "expiry_date": staff.arms_expiry_date.isoformat(),
+                        "days_remaining": (staff.arms_expiry_date - today).days,
+                        "status": "EXPIRING_SOON",
+                    })
+
+    return {
+        "scanned_staff_count": len(all_staff),
+        "expired_count": len(expired_list),
+        "expiring_soon_count": len(expiring_soon_list),
+        "expired": expired_list,
+        "expiring_soon": expiring_soon_list,
+    }
+
+
+@router.post("/compliance/evaluate-bench-locks", response_model=Dict[str, Any])
+def trigger_bench_locks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hr_or_admin),
+) -> Dict[str, Any]:
+    """
+    Automated System Evaluation:
+    Evaluates all staff against statutory compliance rules.
+    Locks profiles with missing/expired Police Verification or Medicals to BENCH status.
+    """
+    all_staff = db.query(GuardProfile).filter(GuardProfile.status != GuardStatus.TERMINATED).all()
+    locked_count = 0
+    unlocked_count = 0
+
+    for staff in all_staff:
+        prev_locked = staff.is_bench_locked
+        staff.evaluate_bench_lock()
+        if staff.is_bench_locked and not prev_locked:
+            locked_count += 1
+        elif not staff.is_bench_locked and prev_locked:
+            unlocked_count += 1
+
+    db.commit()
+    return {
+        "status": "completed",
+        "total_evaluated": len(all_staff),
+        "newly_locked_to_bench": locked_count,
+        "unlocked_to_active": unlocked_count,
+    }
 
 
 @router.post("/", response_model=GuardProfileResponse, status_code=http_status.HTTP_201_CREATED)
@@ -51,9 +180,9 @@ def create_guard(
     *,
     db: Session = Depends(get_db),
     guard_in: GuardProfileCreate,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_hr_or_admin),
 ) -> GuardProfileResponse:
-    """Create a new guard profile attached to a User (Admin only)."""
+    """Create a new staff profile attached to a User (HR / Admin)."""
     db_user = crud_user.get(db, id=guard_in.user_id)
     if not db_user:
         raise HTTPException(
@@ -72,7 +201,12 @@ def create_guard(
             status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Badge number is already assigned.",
         )
-    return crud_guard.create(db, obj_in=guard_in)
+
+    profile = crud_guard.create(db, obj_in=guard_in)
+    profile.evaluate_bench_lock()
+    db.commit()
+    db.refresh(profile)
+    return profile
 
 
 @router.get("/{guard_id}", response_model=GuardProfileResponse)
@@ -111,9 +245,9 @@ def update_guard(
     db: Session = Depends(get_db),
     guard_id: int,
     guard_in: GuardProfileUpdate,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_hr_or_admin),
 ) -> GuardProfileResponse:
-    """Update guard profile (Admin only)."""
+    """Update guard profile (Admin / HR). Re-evaluates bench lock criteria."""
     db_guard = crud_guard.get(db, id=guard_id)
     if not db_guard:
         raise HTTPException(
@@ -127,7 +261,12 @@ def update_guard(
                 status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail="Badge number is already assigned to another guard.",
             )
-    return crud_guard.update(db, db_obj=db_guard, obj_in=guard_in)
+
+    updated = crud_guard.update(db, db_obj=db_guard, obj_in=guard_in)
+    updated.evaluate_bench_lock()
+    db.commit()
+    db.refresh(updated)
+    return updated
 
 
 @router.delete("/{guard_id}", response_model=GuardProfileResponse)

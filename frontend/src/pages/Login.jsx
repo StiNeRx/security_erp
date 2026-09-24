@@ -4,8 +4,8 @@ import { useAuth } from '../context/useAuth';
 import { Lock, Mail, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function Login() {
-  const [email, setEmail] = useState('admin@securityerp.com');
-  const [password, setPassword] = useState('Admin@12345');
+  const [email, setEmail] = useState('owner@fortellus.com');
+  const [password, setPassword] = useState('auth0000');
   const [error, setError] = useState('');
   const { login, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -51,10 +51,10 @@ export default function Login() {
             <ShieldCheck className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-wider flex items-center gap-2">
-            APEX <span className="text-cyan-400 font-mono text-lg font-bold">OPS // 2026</span>
+            FORTELLUS <span className="text-cyan-400 font-mono text-lg font-bold">ERP // 2026</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Security & Facility Management Operations Portal
+            Security, Housekeeping &amp; Healthcare Operations Portal
           </p>
         </div>
 
@@ -74,7 +74,7 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@securityerp.com"
+                placeholder="owner@fortellus.com"
                 className="w-full cyber-input pl-10 h-11"
               />
             </div>
@@ -113,41 +113,68 @@ export default function Login() {
 
         <div className="pt-4 border-t border-slate-800 space-y-2">
           <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono text-center font-bold">
-            1-Click Demo Personas
+            1-Click Fortellus Personas
           </p>
 
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => handleQuickFill('admin@securityerp.com', 'Admin@12345')}
-              className="p-2 rounded-xl cyber-card border border-slate-800 hover:border-cyan-500/40 text-center transition-all group"
+              onClick={() => handleQuickFill('owner@fortellus.com', 'auth0000')}
+              className="p-2 rounded-xl cyber-card border border-amber-500/30 hover:border-amber-400 text-center transition-all group"
             >
-              <p className="font-bold text-white text-[11px] group-hover:text-cyan-400">Admin</p>
-              <span className="text-[9px] font-mono text-slate-500">Full Control</span>
+              <p className="font-bold text-white text-[11px] group-hover:text-amber-400">Owner</p>
+              <span className="text-[9px] font-mono text-amber-500">Executive</span>
             </button>
 
             <button
               type="button"
-              onClick={() => handleQuickFill('client.manager@acmecorp.com', 'Client@12345')}
+              onClick={() => handleQuickFill('operations@fortellus.com', 'auth0000')}
+              className="p-2 rounded-xl cyber-card border border-slate-800 hover:border-sky-500/40 text-center transition-all group"
+            >
+              <p className="font-bold text-white text-[11px] group-hover:text-sky-400">Operations</p>
+              <span className="text-[9px] font-mono text-slate-500">Sites/Rosters</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickFill('hr@fortellus.com', 'auth0000')}
+              className="p-2 rounded-xl cyber-card border border-slate-800 hover:border-rose-500/40 text-center transition-all group"
+            >
+              <p className="font-bold text-white text-[11px] group-hover:text-rose-400">HR Manager</p>
+              <span className="text-[9px] font-mono text-slate-500">Personnel</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickFill('accounts@fortellus.com', 'auth0000')}
+              className="p-2 rounded-xl cyber-card border border-slate-800 hover:border-violet-500/40 text-center transition-all group"
+            >
+              <p className="font-bold text-white text-[11px] group-hover:text-violet-400">Accounts</p>
+              <span className="text-[9px] font-mono text-slate-500">Billing/GST</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickFill('client@techpark.com', 'auth0000')}
               className="p-2 rounded-xl cyber-card border border-slate-800 hover:border-purple-500/40 text-center transition-all group"
             >
               <p className="font-bold text-white text-[11px] group-hover:text-purple-400">Client</p>
-              <span className="text-[9px] font-mono text-slate-500">Acme Corp</span>
+              <span className="text-[9px] font-mono text-slate-500">TechPark</span>
             </button>
 
             <button
               type="button"
-              onClick={() => handleQuickFill('guard.ramesh@securityerp.com', 'Guard@12345')}
-              className="p-2 rounded-xl cyber-card border border-slate-800 hover:border-amber-500/40 text-center transition-all group"
+              onClick={() => handleQuickFill('guard@fortellus.com', 'auth0000')}
+              className="p-2 rounded-xl cyber-card border border-slate-800 hover:border-emerald-500/40 text-center transition-all group"
             >
-              <p className="font-bold text-white text-[11px] group-hover:text-amber-400">Guard</p>
-              <span className="text-[9px] font-mono text-slate-500">Staff Gate</span>
+              <p className="font-bold text-white text-[11px] group-hover:text-emerald-400">Guard</p>
+              <span className="text-[9px] font-mono text-slate-500">Terminal</span>
             </button>
           </div>
         </div>
 
         <p className="text-center text-[11px] text-slate-500 font-mono">
-          Security ERP System // Production Architecture
+          Fortellus Enterprise ERP // Production Architecture
         </p>
       </div>
     </div>
