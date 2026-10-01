@@ -74,6 +74,9 @@ Path: D:\Clients_works\security_erp
 ### Attendance
 - `GET /api/v1/attendances/` - List attendance records (scoped by role)
 - `POST /api/v1/attendances/` - Record individual attendance (Staff only)
+- `POST /api/v1/attendances/check-in` - Field GPS check-in with Haversine verification & device binding
+- `POST /api/v1/attendances/check-out` - Field GPS check-out with automatic overtime calculation
+- `POST /api/v1/attendances/{attendance_id}/override` - Supervisor geofence breach manual override
 - `POST /api/v1/attendances/bulk` - Mark bulk attendance (Admin/Staff only)
 
 ### Invoices

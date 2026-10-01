@@ -1,15 +1,17 @@
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_active_user, require_admin
+from app.api.deps import get_current_active_user, require_admin, require_ops_or_admin
 from app.core.database import get_db
 from app.crud.crud_attendance import attendance as crud_attendance
 from app.crud.crud_roster import roster as crud_roster
 from app.crud.crud_site import site as crud_site
 from app.crud.crud_guard import guard as crud_guard
 from app.crud.crud_client import client as crud_client
-from app.models.attendance import Attendance
+from app.models.attendance import Attendance, haversine_distance_meters
 from app.models.enums import AttendanceStatus, RosterStatus, UserRole
 from app.models.roster import ShiftRoster
 from app.models.user import User
@@ -17,6 +19,9 @@ from app.schemas.attendance import (
     AttendanceCreate,
     AttendanceUpdate,
     AttendanceResponse,
+    AttendanceCheckInRequest,
+    AttendanceCheckOutRequest,
+    GeofenceOverrideRequest,
     BulkAttendanceRequest,
     BulkAttendanceResponse,
 )
@@ -61,6 +66,173 @@ def read_attendances(
         query = query.filter(crud_attendance.model.roster_id == roster_id)
 
     return query.order_by(crud_attendance.model.created_at.desc()).offset(skip).limit(limit).all()
+
+
+@router.post("/check-in", response_model=AttendanceResponse, status_code=status.HTTP_200_OK)
+def check_in_geofence(
+    *,
+    db: Session = Depends(get_db),
+    check_in: AttendanceCheckInRequest,
+    current_user: User = Depends(get_current_active_user),
+) -> AttendanceResponse:
+    """
+    Field GPS Check-In with Server-Side Haversine Verification & Device Binding.
+    Verifies that the officer's device is within the calibrated site geofence radius (default 100m).
+    """
+    db_roster = crud_roster.get(db, id=check_in.roster_id)
+    if not db_roster:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Shift roster reference not found.",
+        )
+
+    # Scoping: Staff can only check into their own assigned shifts
+    if current_user.role == UserRole.STAFF and not current_user.is_superuser:
+        own_guard = crud_guard.get_by_user_id(db, user_id=current_user.id)
+        if not own_guard or db_roster.guard_id != own_guard.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access forbidden: you can only check in for your own assigned shifts.",
+            )
+
+    # Check if guard is bench-locked
+    guard_profile = crud_guard.get(db, id=db_roster.guard_id)
+    if guard_profile and getattr(guard_profile, "is_bench_locked", False):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Personnel '{guard_profile.full_name}' is BENCH-LOCKED: "
+                f"{getattr(guard_profile, 'bench_lock_reason', 'Compliance Hold')}. "
+                "Check-in blocked until statutory hold is cleared."
+            ),
+        )
+
+    # Read site GPS coordinates & geofence radius
+    site = crud_site.get(db, id=db_roster.site_id)
+    site_lat = float(site.latitude) if site and site.latitude is not None else None
+    site_lng = float(site.longitude) if site and site.longitude is not None else None
+    geofence_radius = getattr(site, "geofence_radius_m", 100) or 100
+
+    # Retrieve existing or initialize new attendance
+    attendance = crud_attendance.get_by_roster_id(db, roster_id=check_in.roster_id)
+    now = datetime.now(timezone.utc)
+
+    if not attendance:
+        attendance = Attendance(
+            roster_id=check_in.roster_id,
+            status=AttendanceStatus.PRESENT,
+            check_in_time=now,
+            check_in_lat=check_in.latitude,
+            check_in_lng=check_in.longitude,
+            device_id=check_in.device_id,
+            device_name=check_in.device_name,
+            remarks=check_in.remarks,
+        )
+        db.add(attendance)
+    else:
+        attendance.check_in_time = now
+        attendance.check_in_lat = check_in.latitude
+        attendance.check_in_lng = check_in.longitude
+        attendance.device_id = check_in.device_id
+        attendance.device_name = check_in.device_name
+        attendance.status = AttendanceStatus.PRESENT
+        if check_in.remarks:
+            attendance.remarks = check_in.remarks
+
+    # Run Haversine Verification
+    attendance.verify_geofence(site_lat=site_lat, site_lng=site_lng, radius_m=geofence_radius)
+
+    # Update roster status to PRESENT / SCHEDULED
+    db_roster.status = RosterStatus.SCHEDULED
+
+    db.commit()
+    db.refresh(attendance)
+    return attendance
+
+
+@router.post("/check-out", response_model=AttendanceResponse, status_code=status.HTTP_200_OK)
+def check_out_geofence(
+    *,
+    db: Session = Depends(get_db),
+    check_out: AttendanceCheckOutRequest,
+    current_user: User = Depends(get_current_active_user),
+) -> AttendanceResponse:
+    """
+    Field GPS Check-Out and Automated Shift Overtime Accumulator.
+    Calculates worked duration and auto-syncs overtime hours to payroll ledger.
+    """
+    db_roster = crud_roster.get(db, id=check_out.roster_id)
+    if not db_roster:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Shift roster reference not found.",
+        )
+
+    if current_user.role == UserRole.STAFF and not current_user.is_superuser:
+        own_guard = crud_guard.get_by_user_id(db, user_id=current_user.id)
+        if not own_guard or db_roster.guard_id != own_guard.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access forbidden: you can only check out from your own assigned shifts.",
+            )
+
+    attendance = crud_attendance.get_by_roster_id(db, roster_id=check_out.roster_id)
+    if not attendance:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No check-in record found for this shift. Check-in must precede check-out.",
+        )
+
+    now = datetime.now(timezone.utc)
+    attendance.check_out_time = now
+    if check_out.latitude:
+        attendance.check_out_lat = check_out.latitude
+    if check_out.longitude:
+        attendance.check_out_lng = check_out.longitude
+    if check_out.remarks:
+        attendance.remarks = f"{attendance.remarks or ''} | Out: {check_out.remarks}".strip()
+
+    # Standard shift window: 12.0 hours
+    attendance.calculate_hours_and_overtime(standard_shift_hours=12.0)
+
+    # Complete the roster
+    db_roster.status = RosterStatus.COMPLETED
+
+    db.commit()
+    db.refresh(attendance)
+    return attendance
+
+
+@router.post("/{attendance_id}/override", response_model=AttendanceResponse)
+def supervisor_geofence_override(
+    *,
+    db: Session = Depends(get_db),
+    attendance_id: int,
+    override_in: GeofenceOverrideRequest,
+    current_user: User = Depends(require_ops_or_admin),
+) -> AttendanceResponse:
+    """
+    Authorized Supervisor / Operations Manager Geofence Override.
+    Allows manual validation of an out-of-bounds or perimeter GPS breach with audit logging.
+    """
+    attendance = crud_attendance.get(db, id=attendance_id)
+    if not attendance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attendance record not found.",
+        )
+
+    attendance.is_geofence_verified = True
+    attendance.geofence_status = "OVERRIDE"
+    attendance.verified_by_supervisor_id = current_user.id
+    attendance.geofence_breach_reason = (
+        f"[MANUAL OVERRIDE by {current_user.full_name} ({current_user.role.value})]: {override_in.reason}"
+    )
+
+    db.commit()
+    db.refresh(attendance)
+    return attendance
+
 
 
 @router.post("/bulk", response_model=BulkAttendanceResponse, status_code=status.HTTP_201_CREATED)

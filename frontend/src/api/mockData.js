@@ -496,8 +496,16 @@ export const INITIAL_ATTENDANCE = [
     shift_type: "DAY",
     status: "PRESENT",
     check_in_time: `${todayStr}T08:00:00Z`,
-    check_out_time: `${todayStr}T18:00:00Z`,
+    check_out_time: `${todayStr}T20:00:00Z`,
     overtime_hours: 2.0,
+    check_in_lat: 28.502840,
+    check_in_lng: 77.087450,
+    distance_from_site_m: 14.5,
+    is_geofence_verified: true,
+    geofence_status: "VERIFIED",
+    geofence_breach_reason: null,
+    device_id: "TERM-G9A1-2026",
+    device_name: "Samsung Galaxy Tab Active",
     remarks: "Extra 2 hours VIP Escort"
   },
   {
@@ -510,9 +518,17 @@ export const INITIAL_ATTENDANCE = [
     shift_type: "DAY",
     status: "PRESENT",
     check_in_time: `${todayStr}T08:15:00Z`,
-    check_out_time: `${todayStr}T17:00:00Z`,
+    check_out_time: `${todayStr}T20:00:00Z`,
     overtime_hours: 0.0,
-    remarks: "On time deployment"
+    check_in_lat: 28.477200,
+    check_in_lng: 77.506100,
+    distance_from_site_m: 235.0,
+    is_geofence_verified: false,
+    geofence_status: "BREACH",
+    geofence_breach_reason: "Check-in coordinates are 235m outside the 150m perimeter.",
+    device_id: "TERM-X882-9011",
+    device_name: "Xiaomi Redmi 12 Terminal",
+    remarks: "Out of bounds check-in flagged for supervisor review"
   },
   {
     id: 3,
@@ -524,8 +540,16 @@ export const INITIAL_ATTENDANCE = [
     shift_type: "DAY",
     status: "PRESENT",
     check_in_time: "2026-08-29T07:55:00Z",
-    check_out_time: "2026-08-29T19:00:00Z",
+    check_out_time: "2026-08-29T22:55:00Z",
     overtime_hours: 3.0,
+    check_in_lat: 28.354150,
+    check_in_lng: 76.936620,
+    distance_from_site_m: 8.2,
+    is_geofence_verified: true,
+    geofence_status: "OVERRIDE",
+    geofence_breach_reason: "[MANUAL OVERRIDE by Operations]: Gate perimeter extended for night logistics convoy",
+    device_id: "TERM-G9A1-2026",
+    device_name: "Samsung Galaxy Tab Active",
     remarks: "Inventory count supervision"
   }
 ];

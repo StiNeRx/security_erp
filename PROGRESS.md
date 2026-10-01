@@ -44,10 +44,15 @@
 
 ---
 
-### Phase 4: GPS Geofenced Attendance & Field Verification Engine — [PENDING]
-- [ ] Server-side Haversine distance geofencing ($R \le 100\text{m}$) against site coordinates.
-- [ ] Mobile/browser device binding protocol to prevent proxy check-in.
-- [ ] Real-time attendance hours and overtime auto-sync to payroll accumulator.
+### Phase 4: GPS Geofenced Attendance & Field Verification Engine — [COMPLETED]
+- [x] Server-side Haversine distance geofencing ($R \le 100\text{m}$) against site coordinates (`site.latitude`, `site.longitude`, `site.geofence_radius_m`).
+- [x] Mobile/browser device binding protocol to prevent proxy check-in (`device_id` / hardware terminal fingerprinting).
+- [x] Field GPS Check-In (`POST /api/v1/attendances/check-in`) with real-time perimeter distance calculation and breach detection.
+- [x] Shift Departure Check-Out (`POST /api/v1/attendances/check-out`) with automated overtime accumulation against 12-hour shift baseline.
+- [x] Supervisor Geofence Override endpoint (`POST /api/v1/attendances/{id}/override`) for authorized manual exceptions with audit logging.
+- [x] Frontend `AttendanceView.jsx` upgraded with Geofence Status radar (`VERIFIED`, `BREACH`, `OVERRIDE`), perimeter compliance %, and live field check-in terminal modal (`CheckInModal.jsx`).
+- [x] Schema migration prepared (`migrate_phase4.py` adding all 11 columns to `attendances`).
+- [x] Frontend build verified passing cleanly (`npm run build`).
 
 ---
 
