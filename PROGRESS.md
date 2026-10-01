@@ -32,11 +32,15 @@
 
 ---
 
-### Phase 3: Client Master, Dynamic Contracts & Deployment Roster Engine — [PENDING]
-- [ ] 15-digit GSTIN regex validation on client creation.
-- [ ] Multi-site dynamic contract rates and 30-60 day contract expiry tracking.
-- [ ] Automated Deployment Roster Engine with shift overlap collision prevention.
-- [ ] Real-time Shortfall Index ($G_s = 1 - N_{active}/N_{required}$) and auto-bench suggestions.
+### Phase 3: Client Master, Dynamic Contracts & Deployment Roster Engine — [COMPLETED]
+- [x] 15-digit GSTIN regex validation (`^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$`) on client creation & live frontend feedback.
+- [x] Multi-site dynamic contract rates per vertical (`contract_rate_security`, `contract_rate_housekeeping`, `contract_rate_nursing`) and headcount targets (`required_security`, `required_housekeeping`, `required_nursing`).
+- [x] 30-60 day contract expiry tracking, countdowns, health badges (`ACTIVE`, `EXPIRING`, `EXPIRED`, `NO CONTRACT`), and status filters in `ClientsView`.
+- [x] Automated Deployment Roster Engine with shift overlap collision prevention across all sites on same date/time slot (blocks double-booking).
+- [x] Strict Compliance Bench-Lock enforcement in roster dispatch (`create_roster` & `assign_weekly_roster` reject bench-locked guards with 422).
+- [x] Real-time Shortfall Index ($G_s = 1 - N_{active}/N_{required}$) radar per facility with breakdown and 1-click auto-suggest replacement from BENCH pool.
+- [x] Supabase live migration executed (`migrate_phase3.py` added all 14 columns to `clients` and `sites` tables).
+- [x] Frontend build verified passing cleanly (`npm run build`).
 
 ---
 

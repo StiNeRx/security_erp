@@ -8,10 +8,11 @@ from app.crud.crud_site import site as crud_site
 from app.crud.crud_client import client as crud_client
 from app.crud.crud_guard import guard as crud_guard
 from app.crud.crud_roster import roster as crud_roster
-from app.models.enums import UserRole
+from app.models.enums import UserRole, GuardStatus, StaffVertical
+from app.models.guard import GuardProfile
 from app.models.roster import ShiftRoster
 from app.models.user import User
-from app.schemas.site import SiteCreate, SiteUpdate, SiteResponse
+from app.schemas.site import SiteCreate, SiteUpdate, SiteResponse, ShortfallIndexResponse
 from app.schemas.roster import ShiftRosterResponse
 
 router = APIRouter()
@@ -186,3 +187,102 @@ def read_site_rosters(
         )
 
     return crud_roster.get_site_roster(db, site_id=site_id, skip=skip, limit=limit)
+
+
+@router.get("/{site_id}/shortfall", response_model=ShortfallIndexResponse)
+def get_site_shortfall_index(
+    *,
+    db: Session = Depends(get_db),
+    site_id: int,
+    roster_date: Optional[str] = Query(
+        None, description="ISO date (YYYY-MM-DD) to check deployed headcount for. Defaults to today."
+    ),
+    current_user: User = Depends(get_current_active_user),
+) -> ShortfallIndexResponse:
+    """
+    Compute the Real-time Shortfall Index (Gs) for a site.
+
+    Gs = 1 - N_active / N_required  (0 = fully staffed, 1 = completely unstaffed)
+
+    Returns:
+      - required headcount per vertical
+      - deployed headcount per vertical (from SCHEDULED/PRESENT rosters on the given date)
+      - shortfall per vertical
+      - Gs (aggregate)
+      - available_bench: guard IDs in BENCH status (not bench-locked, same vertical) for auto-suggest
+    """
+    from datetime import date as date_type
+    db_site = crud_site.get(db, id=site_id)
+    if not db_site:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found.")
+
+    # Role scoping
+    if current_user.role == UserRole.CLIENT and not current_user.is_superuser:
+        own_client = crud_client.get_by_user_id(db, user_id=current_user.id)
+        if not own_client or db_site.client_id != own_client.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access forbidden.")
+
+    check_date = date_type.fromisoformat(roster_date) if roster_date else date_type.today()
+
+    # Count scheduled/present guards on this date per vertical using a join
+    from app.models.enums import RosterStatus
+    roster_query = (
+        db.query(GuardProfile.vertical, db.query(GuardProfile).filter(
+            ShiftRoster.site_id == site_id,
+            ShiftRoster.date == check_date,
+            ShiftRoster.status.in_([RosterStatus.SCHEDULED, RosterStatus.PRESENT]),
+            ShiftRoster.guard_id == GuardProfile.id,
+        ).correlate(GuardProfile).exists())
+    )
+    # Simpler: count per vertical directly
+    from sqlalchemy import func as sql_func
+    deployed_rows = (
+        db.query(GuardProfile.vertical, sql_func.count(GuardProfile.id).label("cnt"))
+        .join(ShiftRoster, ShiftRoster.guard_id == GuardProfile.id)
+        .filter(
+            ShiftRoster.site_id == site_id,
+            ShiftRoster.date == check_date,
+            ShiftRoster.status.in_(["SCHEDULED", "PRESENT"]),
+        )
+        .group_by(GuardProfile.vertical)
+        .all()
+    )
+    deployed: dict[str, int] = {v.value: 0 for v in StaffVertical}
+    for row in deployed_rows:
+        key = row.vertical.value if hasattr(row.vertical, "value") else str(row.vertical)
+        deployed[key] = row.cnt
+
+    required = {
+        StaffVertical.SECURITY.value: db_site.required_security or 0,
+        StaffVertical.HOUSEKEEPING.value: db_site.required_housekeeping or 0,
+        StaffVertical.NURSING.value: db_site.required_nursing or 0,
+    }
+    shortfall = {k: max(0, required[k] - deployed.get(k, 0)) for k in required}
+
+    gs = db_site.shortfall_index(
+        deployed_security=deployed.get(StaffVertical.SECURITY.value, 0),
+        deployed_housekeeping=deployed.get(StaffVertical.HOUSEKEEPING.value, 0),
+        deployed_nursing=deployed.get(StaffVertical.NURSING.value, 0),
+    )
+
+    # Available BENCH pool — not bench-locked, status=BENCH
+    bench_guards = (
+        db.query(GuardProfile.id)
+        .filter(
+            GuardProfile.status == GuardStatus.BENCH,
+            GuardProfile.is_bench_locked.is_(False),
+            GuardProfile.is_active.is_(True),
+        )
+        .all()
+    )
+    available_bench = [g.id for g in bench_guards]
+
+    return ShortfallIndexResponse(
+        site_id=site_id,
+        site_name=db_site.site_name,
+        required=required,
+        deployed={k: deployed.get(k, 0) for k in required},
+        shortfall=shortfall,
+        Gs=gs,
+        available_bench=available_bench,
+    )

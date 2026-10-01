@@ -57,6 +57,15 @@ Path: D:\Clients_works\security_erp
 - `DELETE /api/v1/guards/{guard_id}` - Delete guard (Admin only)
 - `GET /api/v1/guards/{guard_id}/rosters` - Get guard's rosters
 
+### Sites
+- `GET /api/v1/sites/` - List sites (scoped by role)
+- `POST /api/v1/sites/` - Create site (Admin only)
+- `GET /api/v1/sites/{site_id}` - Get site by ID
+- `PUT /api/v1/sites/{site_id}` - Update site (Admin only)
+- `DELETE /api/v1/sites/{site_id}` - Delete site (Admin only)
+- `GET /api/v1/sites/{site_id}/rosters` - Get site's rosters
+- `GET /api/v1/sites/{site_id}/shortfall` - Compute real-time Shortfall Index (Gs) and auto-suggest bench
+
 ### Rosters
 - `GET /api/v1/rosters/` - List rosters (scoped by role)
 - `POST /api/v1/rosters/` - Create individual roster (Admin only)

@@ -116,6 +116,16 @@ def assign_weekly_roster(
                 detail=f"Guard profile with ID {item.guard_id} not found.",
             )
 
+        # Phase 3: Block bench-locked staff from batch scheduling
+        if getattr(db_guard, "is_bench_locked", False):
+            raise HTTPException(
+                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"Guard '{db_guard.full_name}' is BENCH-LOCKED and cannot be rostered. "
+                    f"Reason: {getattr(db_guard, 'bench_lock_reason', 'Compliance hold')}."
+                ),
+            )
+
         # Check conflict on same guard, date, shift_type across any site
         conflict = (
             db.query(ShiftRoster)
@@ -182,6 +192,16 @@ def create_roster(
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Guard profile not found.",
+        )
+    # Phase 3: Block bench-locked staff from being rostered
+    if getattr(db_guard, "is_bench_locked", False):
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Guard '{db_guard.full_name}' is BENCH-LOCKED and cannot be rostered. "
+                f"Reason: {getattr(db_guard, 'bench_lock_reason', 'Compliance hold')}. "
+                "Resolve the compliance deficiency first."
+            ),
         )
     existing_shift = crud_roster.get_by_guard_date_shift(
         db,

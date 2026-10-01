@@ -9,7 +9,67 @@ import ClientModal from '../modals/ClientModal';
 import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
 import { INITIAL_CLIENTS, INITIAL_SITES, INITIAL_INVOICES } from '../api/mockData';
-import { Users, Plus, Building2, Mail, Phone, MapPin, Edit3, Shield, ShieldAlert } from 'lucide-react';
+import {
+  Users,
+  Plus,
+  Building2,
+  Mail,
+  Phone,
+  MapPin,
+  Edit3,
+  Shield,
+  ShieldAlert,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  FileText,
+  Calendar
+} from 'lucide-react';
+
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+export function getContractStatus(client) {
+  if (!client?.contract_end_date) return { label: 'NO CONTRACT', color: 'slate', days: null, status: 'NO_CONTRACT' };
+  const days = Math.ceil((new Date(client.contract_end_date) - new Date()) / 86400000);
+  if (days < 0) return { label: `EXPIRED (${Math.abs(days)}d ago)`, color: 'red', days, status: 'EXPIRED' };
+  if (days <= 30) return { label: `EXPIRING (${days}d)`, color: 'amber', days, status: 'EXPIRING' };
+  return { label: `ACTIVE (${days}d left)`, color: 'emerald', days, status: 'ACTIVE' };
+}
+
+export function ContractBadge({ client }) {
+  const status = getContractStatus(client);
+  if (status.color === 'red') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-950/70 border border-red-500/40 text-red-400">
+        <XCircle className="w-2.5 h-2.5" />
+        {status.label}
+      </span>
+    );
+  }
+  if (status.color === 'amber') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/70 border border-amber-500/40 text-amber-400">
+        <AlertTriangle className="w-2.5 h-2.5" />
+        {status.label}
+      </span>
+    );
+  }
+  if (status.color === 'emerald') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-950/60 border border-emerald-500/30 text-emerald-400">
+        <CheckCircle2 className="w-2.5 h-2.5" />
+        {status.label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-900 border border-slate-700 text-slate-400">
+      <Clock className="w-2.5 h-2.5" />
+      NO CONTRACT
+    </span>
+  );
+}
 
 export default function ClientsView() {
   const { user } = useAuth();
@@ -41,7 +101,7 @@ export default function ClientsView() {
           if (iRes.status === 'fulfilled' && iRes.value?.data?.length) setInvoices(iRes.value.data);
         }
       } catch {
-        // fallback
+        // fallback to initial
       }
     }
     loadData();
@@ -90,37 +150,63 @@ export default function ClientsView() {
     const contact = client.contact_person || '';
     const email = client.contact_email || '';
     const gst = client.gst_number || '';
+    const pan = client.pan_number || '';
 
     const matchesSearch =
       compName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      gst.toLowerCase().includes(searchTerm.toLowerCase());
+      gst.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pan.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'ACTIVE' && client.is_active) ||
-      (statusFilter === 'INACTIVE' && !client.is_active);
+    const cStatus = getContractStatus(client).status;
+
+    let matchesStatus = true;
+    if (statusFilter === 'ACTIVE') matchesStatus = client.is_active && cStatus === 'ACTIVE';
+    else if (statusFilter === 'EXPIRING') matchesStatus = cStatus === 'EXPIRING';
+    else if (statusFilter === 'EXPIRED') matchesStatus = cStatus === 'EXPIRED';
+    else if (statusFilter === 'INACTIVE') matchesStatus = !client.is_active;
 
     return matchesSearch && matchesStatus;
   });
+
+  const expiringCount = clients.filter((c) => getContractStatus(c).status === 'EXPIRING').length;
+  const expiredCount = clients.filter((c) => getContractStatus(c).status === 'EXPIRED').length;
 
   const columns = [
     {
       id: 'company',
       header: 'Company / Organization',
       accessorKey: 'company_name',
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-xs">
-            {row.company_name?.charAt(0) || 'C'}
+      render: (row) => {
+        const isGstValid = row.gst_number && GSTIN_REGEX.test(row.gst_number.toUpperCase());
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-xs">
+              {row.company_name?.charAt(0) || 'C'}
+            </div>
+            <div>
+              <p className="font-bold text-white text-xs">{row.company_name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {row.gst_number || 'GST Unregistered'}
+                </span>
+                {row.gst_number && (
+                  <span
+                    className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                      isGstValid
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                    }`}
+                  >
+                    {isGstValid ? '15-DIGIT GSTIN' : 'INVALID'}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-white text-xs">{row.company_name}</p>
-            <p className="text-[10px] text-slate-400 font-mono">{row.gst_number || 'GST Unregistered'}</p>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: 'contact',
@@ -134,10 +220,16 @@ export default function ClientsView() {
       ),
     },
     {
-      id: 'phone',
-      header: 'Phone Number',
-      accessorKey: 'contact_phone',
-      render: (row) => <span className="font-mono text-xs text-slate-300">{row.contact_phone}</span>,
+      id: 'contract',
+      header: 'Contract Health',
+      render: (row) => (
+        <div className="space-y-1">
+          <ContractBadge client={row} />
+          {row.contract_end_date && (
+            <p className="text-[10px] text-slate-500 font-mono">Exp: {row.contract_end_date}</p>
+          )}
+        </div>
+      ),
     },
     {
       id: 'sites',
@@ -186,12 +278,12 @@ export default function ClientsView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {role === 'CLIENT' ? 'Corporate Account & Agreement' : 'Client Accounts & Contracts'}
+            {role === 'CLIENT' ? 'Corporate Account & Agreement' : 'Client Master & Contracts'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             {role === 'CLIENT'
               ? 'Your registered enterprise profile, authorized POC, tax registration, and billing details.'
-              : 'Manage client profiles, corporate addresses, GST credentials, and deployment locations.'}
+              : 'Manage client profiles, 15-digit GSTIN compliance, dynamic contract rates, and SLAs.'}
           </p>
         </div>
         {role === 'ADMIN' && (
@@ -208,7 +300,7 @@ export default function ClientsView() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard
           label="Contracted Clients"
           value={clients.length}
@@ -226,19 +318,27 @@ export default function ClientsView() {
           sparkline={[3, 4, 4, 5, 5, 6, sites.length]}
         />
         <StatCard
-          label="Active Contracts"
-          value={clients.filter((c) => c.is_active).length}
-          icon={Shield}
-          trend="100% Retained"
-          glow="border-emerald-500/30"
-          sparkline={[100, 100, 100, 100, 100, 100, 100]}
+          label="Contract Expiries (<30d)"
+          value={expiringCount}
+          icon={AlertTriangle}
+          trend={expiringCount > 0 ? "Requires Renewal" : "All Healthy"}
+          glow={expiringCount > 0 ? "border-amber-500/40" : "border-slate-800"}
+          sparkline={[0, 1, 1, expiringCount]}
+        />
+        <StatCard
+          label="Expired Contracts"
+          value={expiredCount}
+          icon={ShieldAlert}
+          trend={expiredCount > 0 ? "Hold Risk" : "Zero Overdue"}
+          glow={expiredCount > 0 ? "border-red-500/40" : "border-emerald-500/30"}
+          sparkline={[0, 0, expiredCount]}
         />
       </div>
 
       <FilterBar
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        placeholder="Search by company name, contact person, GSTIN..."
+        placeholder="Search by company name, contact, 15-digit GSTIN, PAN..."
         viewMode={viewMode}
         setViewMode={setViewMode}
         filters={[
@@ -248,6 +348,8 @@ export default function ClientsView() {
             options: [
               { value: 'ALL', label: 'All Accounts' },
               { value: 'ACTIVE', label: 'Active Contracts' },
+              { value: 'EXPIRING', label: 'Expiring Soon (≤30d)' },
+              { value: 'EXPIRED', label: 'Expired Contracts' },
               { value: 'INACTIVE', label: 'Inactive / Suspended' },
             ],
           },
@@ -260,6 +362,7 @@ export default function ClientsView() {
           {filteredClients.map((client) => {
             const clientSites = sites.filter((s) => s.client_id === client.id);
             const clientInvoices = invoices.filter((i) => i.client_id === client.id);
+            const isGstValid = client.gst_number && GSTIN_REGEX.test(client.gst_number.toUpperCase());
 
             return (
               <div
@@ -279,7 +382,10 @@ export default function ClientsView() {
                       <p className="text-[11px] text-slate-400">{client.contact_person}</p>
                     </div>
                   </div>
-                  <StatusBadge status={client.is_active ? 'ACTIVE' : 'INACTIVE'} />
+                  <div className="flex flex-col items-end gap-1">
+                    <StatusBadge status={client.is_active ? 'ACTIVE' : 'INACTIVE'} />
+                    <ContractBadge client={client} />
+                  </div>
                 </div>
 
                 <div className="space-y-1.5 text-xs text-slate-400">
@@ -295,6 +401,14 @@ export default function ClientsView() {
                     <MapPin className="w-3.5 h-3.5 text-slate-500 mt-0.5 shrink-0" />
                     <span className="text-[11px] line-clamp-1">{client.billing_address}</span>
                   </div>
+                  {client.contract_terms && (
+                    <div className="flex items-start gap-2 pt-1 border-t border-slate-800/40">
+                      <FileText className="w-3.5 h-3.5 text-cyan-400 mt-0.5 shrink-0" />
+                      <span className="text-[10px] text-slate-400 line-clamp-1 italic">
+                        {client.contract_terms}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80 text-xs">
@@ -312,9 +426,20 @@ export default function ClientsView() {
                   className="pt-2 flex items-center justify-between text-xs"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <span className="font-mono text-[10px] text-slate-500">
-                    GST: {client.gst_number || 'UNREGISTERED'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px] text-slate-400">
+                      GST: {client.gst_number || 'UNREGISTERED'}
+                    </span>
+                    {client.gst_number && (
+                      <span
+                        className={`text-[8px] font-bold px-1 rounded ${
+                          isGstValid ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'
+                        }`}
+                      >
+                        {isGstValid ? 'VERIFIED' : 'INVALID'}
+                      </span>
+                    )}
+                  </div>
                   {role === 'ADMIN' && (
                     <button
                       onClick={() => {
@@ -342,6 +467,7 @@ export default function ClientsView() {
         />
       )}
 
+      {/* Detailed 360 Client Drawer */}
       <DetailDrawer
         isOpen={!!selectedClient}
         onClose={() => setSelectedClient(null)}
